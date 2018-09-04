@@ -2,11 +2,10 @@ import torch, torchvision, os, sys
 from capsnet import CapsNet
 
 DATA_FOLDER = 'data/'
-BATCH_SIZE = 15
+BATCH_SIZE = 500
 NB_EPOCHS = 100
 
-# nb_cores = os.cpu_count()
-nb_cores = 1
+nb_cores = os.cpu_count()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 transform = torchvision.transforms.Compose([
@@ -14,7 +13,7 @@ transform = torchvision.transforms.Compose([
 ])
 MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=transform, target_transform=None, download=True)
 data_loader = torch.utils.data.DataLoader(MNIST_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=nb_cores)
-model = CapsNet()
+model = CapsNet().to(device)
 criterion = torch.nn.NLLLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
@@ -27,7 +26,8 @@ for epoch in range(NB_EPOCHS):
     running_corrects = 0
     nb_images = 0
 
-    for inputs, labels in data_loader:
+    for i, (inputs, labels) in enumerate(data_loader):
+        # print(i)
         inputs = inputs.to(device)
         labels = labels.to(device)
         outputs = model(inputs)

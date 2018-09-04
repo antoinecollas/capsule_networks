@@ -1,5 +1,6 @@
 import torch, sys
 from torch import nn
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def squash(s, dim=-1):
     squared_norm = (s ** 2).sum(dim=dim, keepdim=True)
@@ -29,7 +30,7 @@ def routing(u, nb_iterations=1):
         Returns: [batch_size, out_height, out_width]
     '''
     batch_size, out_height, in_caps, out_width = u.shape
-    b = torch.zeros((batch_size, out_height, in_caps, 1))
+    b = torch.zeros((batch_size, out_height, in_caps, 1)).to(device)
     for i in range(nb_iterations):
         c = torch.nn.functional.softmax(b, dim=-2)
         s = u*c
