@@ -58,7 +58,6 @@ class DigitCaps(nn.Module):
         output = self.W @ output
         output = output.reshape(output.shape[:-1])
         output = routing(output, self.iter)
-        output = squash(output, dim=-1)
         return output
 
 class CapsNet(nn.Module):
@@ -80,6 +79,7 @@ class CapsNet(nn.Module):
         output = self.primary_caps(output)
         output = self.digit_caps(output)
         output = torch.norm(output, p=2, dim=-1)
+        output = torch.log(output)
         return output
 
     # def extra_repr(self):

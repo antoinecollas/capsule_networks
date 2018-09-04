@@ -15,7 +15,7 @@ MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=
 data_loader = torch.utils.data.DataLoader(MNIST_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=nb_cores)
 model = CapsNet().to(device)
 criterion = torch.nn.NLLLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 print('Number of parameters:', model.count_parameters())
 for epoch in range(NB_EPOCHS):
@@ -31,6 +31,7 @@ for epoch in range(NB_EPOCHS):
         inputs = inputs.to(device)
         labels = labels.to(device)
         outputs = model(inputs)
+        # print("outputs=", outputs)
         _, preds = torch.max(outputs, 1)
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
@@ -39,10 +40,13 @@ for epoch in range(NB_EPOCHS):
         running_loss += loss.item() * inputs.shape[0]
         running_corrects += torch.sum(preds == labels.data)
         nb_images += inputs.shape[0]
+        # print('labels.data=', labels.data)
+        # print('preds=', preds)
+        batch_acc = torch.sum(preds == labels.data).double()/inputs.shape[0]
+        print('Batch n° {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
 
     epoch_loss = running_loss / nb_images
     epoch_acc = running_corrects.double() / nb_images
 
     print('Loss: {:.4f} Acc: {:.4f}'.format(epoch_loss, epoch_acc))
     print('-' * 100)
-
