@@ -19,12 +19,14 @@ class MarginLoss(nn.Module):
         for i in range(batch_size):
             for k in range(nb_digits):
                 if k==target[i]:
-                    L_k = torch.max(torch.tensor([0, self.m_plus-input[i,k]], requires_grad=True))**2
+                    temp = torch.tensor(torch.tensor([0, self.m_plus-input[i,k]]).to(device), requires_grad=True)
+                    L_k = torch.max(temp)**2
                 else:
-                    L_k = self.weight*(torch.max(torch.tensor([0, input[i,k]-self.m_minus], requires_grad=True)**2))
+                    temp = torch.tensor(torch.tensor([0, input[i,k]-self.m_minus]).to(device), requires_grad=True)
+                    L_k = self.weight*(torch.max(temp)**2)
                 L = L + L_k
         t1 = time.time()
-        print("time=", t1-t0)
+        # print("time=", t1-t0)
         return L/batch_size
 
 def squash(s, dim=-1):
@@ -57,7 +59,7 @@ def routing(u, nb_iterations=1):
     batch_size, out_height, in_caps, out_width = u.shape
     b = torch.zeros((batch_size, out_height, in_caps, 1)).to(device)
     for i in range(nb_iterations):
-        c = torch.nn.functional.softmax(b, dim=-2)
+        c = torch.nn.functional.softmax(b, dim=-3)
         s = u*c
         s = torch.sum(s, dim=-2)
         v = squash(s, dim=-1)
