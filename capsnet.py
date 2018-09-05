@@ -1,6 +1,31 @@
-import torch, sys
+import torch, sys, time
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+class MarginLoss(nn.Module):
+    def __init__(self, m_plus=0.9, m_minus=0.1, weight=0.5):
+        super(MarginLoss, self).__init__()
+        self.m_plus, self.m_minus, self.weight = m_plus, m_minus, weight
+    
+    def forward(self, input, target):
+        '''
+            - Input: [batch_size, nb_classes] each number is a probability (0<=p<=1)
+            - Target: [batch_size] each classe is an interger which belongs to [0, nb_classes[
+            - Output: scalar
+        '''
+        L = 0
+        t0 = time.time()
+        batch_size, nb_digits = input.shape
+        for i in range(batch_size):
+            for k in range(nb_digits):
+                if k==target[i]:
+                    L_k = torch.max(torch.tensor([0, self.m_plus-input[i,k]], requires_grad=True))**2
+                else:
+                    L_k = self.weight*(torch.max(torch.tensor([0, input[i,k]-self.m_minus], requires_grad=True)**2))
+                L = L + L_k
+        t1 = time.time()
+        print("time=", t1-t0)
+        return L/batch_size
 
 def squash(s, dim=-1):
     squared_norm = (s ** 2).sum(dim=dim, keepdim=True)
@@ -8,16 +33,16 @@ def squash(s, dim=-1):
     return scale * s / torch.sqrt(squared_norm)
 
 class PrimaryCaps(nn.Module):
-    '''
-        Input: [batch_size, in_channels, in_height, in_width]
-        Returns: [batch_size, out_channels, size_primary_caps, out_height, out_width]
-    '''
     def __init__(self, kernel_size=9, in_channels=256, size_primary_caps=8, out_channels=32):
         super(PrimaryCaps, self).__init__()
         self.size_primary_caps, self.out_channels = size_primary_caps, out_channels
         self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=size_primary_caps*out_channels, kernel_size=9, stride=2, padding=0, dilation=1, groups=1, bias=True)
 
     def forward(self, x):
+        '''
+            Input: [batch_size, in_channels, in_height, in_width]
+            Returns: [batch_size, out_channels, size_primary_caps, out_height, out_width]
+        '''
         output = self.conv2(x)
         height, width = output.shape[-2:]
         output = output.reshape(-1, self.out_channels, self.size_primary_caps, height, width)
@@ -43,16 +68,16 @@ def routing(u, nb_iterations=1):
     return v
 
 class DigitCaps(nn.Module):
-    '''
-        Input: [batch_size, in_channels, size_primary_caps, in_height, in_width]
-        Returns: [batch_size, out_height, out_width]
-    '''
     def __init__(self, in_caps=1152, size_in_caps=8, in_channels=32, out_height=10, out_width=16, iter_routing=1):
         super(DigitCaps, self).__init__()
         self.W = nn.Parameter(torch.randn(1, out_height, in_caps, out_width, size_in_caps)) # default: [1, 10, 1152, 16, 8]
         self.iter = iter_routing
 
     def forward(self, x):
+        '''
+            Input: [batch_size, in_channels, size_primary_caps, in_height, in_width]
+            Returns: [batch_size, out_height, out_width]
+        '''
         batch_size, _, size_primary_caps, _, _ = x.shape
         output = x.reshape(batch_size, 1, -1, size_primary_caps, 1)
         output = self.W @ output
@@ -79,7 +104,6 @@ class CapsNet(nn.Module):
         output = self.primary_caps(output)
         output = self.digit_caps(output)
         output = torch.norm(output, p=2, dim=-1)
-        output = torch.log(output)
         return output
 
     # def extra_repr(self):

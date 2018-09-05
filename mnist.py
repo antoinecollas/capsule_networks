@@ -1,5 +1,5 @@
 import torch, torchvision, os, sys
-from capsnet import CapsNet
+from capsnet import CapsNet, MarginLoss
 
 DATA_FOLDER = 'data/'
 BATCH_SIZE = 500
@@ -14,7 +14,8 @@ transform = torchvision.transforms.Compose([
 MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=transform, target_transform=None, download=True)
 data_loader = torch.utils.data.DataLoader(MNIST_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=nb_cores)
 model = CapsNet().to(device)
-criterion = torch.nn.NLLLoss()
+# criterion = torch.nn.NLLLoss()
+criterion = MarginLoss(0.9, 0.1, 0.5)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 print('Number of parameters:', model.count_parameters())
@@ -43,7 +44,7 @@ for epoch in range(NB_EPOCHS):
         # print('labels.data=', labels.data)
         # print('preds=', preds)
         batch_acc = torch.sum(preds == labels.data).double()/inputs.shape[0]
-        print('Batch n° {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
+        print('Batch n {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
 
     epoch_loss = running_loss / nb_images
     epoch_acc = running_corrects.double() / nb_images
