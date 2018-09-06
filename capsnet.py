@@ -1,4 +1,4 @@
-import torch, sys, time
+import torch, sys, time, math
 from torch import nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -78,6 +78,11 @@ class DigitCaps(nn.Module):
         super(DigitCaps, self).__init__()
         self.W = nn.Parameter(torch.randn(1, out_height, in_caps, out_width, size_in_caps)) # default: [1, 10, 1152, 16, 8]
         self.iter = iter_routing
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.W.size(-1))
+        self.W.data.uniform_(-stdv, stdv)
 
     def forward(self, x):
         '''
