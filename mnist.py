@@ -14,8 +14,8 @@ transform = torchvision.transforms.Compose([
 MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=transform, target_transform=None, download=True)
 data_loader = torch.utils.data.DataLoader(MNIST_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=nb_cores)
 model = CapsNet().to(device)
-criterion = torch.nn.NLLLoss()
-# criterion = MarginLoss(0.9, 0.1, 0.5)
+# criterion = torch.nn.NLLLoss()
+criterion = MarginLoss(0.9, 0.1, 0.5)
 optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
 
 print('Number of parameters:', model.count_parameters())
