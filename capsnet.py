@@ -14,7 +14,6 @@ class MarginLoss(nn.Module):
             - output: scalar
         '''
         L = 0
-        t0 = time.time()
         # we begin by computing the left part of the formula (eq 4.)
         zeros = torch.zeros(input.shape)
         m_plus = torch.zeros(input.shape).fill_(self.m_plus)
@@ -32,8 +31,6 @@ class MarginLoss(nn.Module):
         loss = loss + loss_2
         loss = loss.sum(dim=1)
         loss = loss.mean()
-        t1 = time.time()
-        print("time=", t1-t0)
         return loss
 
 def squash(s, dim=-1):
