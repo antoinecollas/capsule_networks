@@ -1,12 +1,15 @@
 import torch, torchvision, os, sys, random, math
 from capsnet import CapsNet, MarginLoss
 from torch.utils.data import DataLoader, SubsetRandomSampler
+from tensorboardX import SummaryWriter
 
 DATA_FOLDER = 'data/'
 BATCH_SIZE = 500
 NB_EPOCHS = 1000
 SIZE_TRAIN_SET = 100
 PROPORTION_TRAIN_SET = 0.8
+
+writer = SummaryWriter()
 
 nb_cores = os.cpu_count()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -75,6 +78,11 @@ for epoch in range(NB_EPOCHS):
 
     epoch_loss_val = running_loss / nb_images
     epoch_acc_val = running_corrects.double() / nb_images
-
+    writer.add_scalar('train/Loss', epoch_loss, epoch)
+    writer.add_scalar('train/Acc', epoch_acc, epoch)
+    writer.add_scalar('val/Loss', epoch_loss_val, epoch)
+    writer.add_scalar('val/Acc', epoch_acc_val, epoch)
     print('Total: Train set: Loss: {:.4f} Acc: {:.4f} Val set: Loss: {:.4f} Acc: {:.4f}'.format(epoch_loss, epoch_acc, epoch_loss_val, epoch_acc_val))
     print('-' * 20)
+
+writer.close()
