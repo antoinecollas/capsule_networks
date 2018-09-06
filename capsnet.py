@@ -16,18 +16,18 @@ class MarginLoss(nn.Module):
         L = 0
         t0 = time.time()
         # we begin by computing the left part of the formula (eq 4.)
-        zeros = torch.zeros(input.shape)
-        m_plus = torch.zeros(input.shape).fill_(self.m_plus)
+        zeros = torch.zeros(input.shape).to(device)
+        m_plus = torch.zeros(input.shape).fill_(self.m_plus).to(device)
         loss = torch.max(zeros, m_plus-input)**2
         target_reshape = target.reshape((target.shape[0],1))
-        mask = torch.zeros(input.shape).scatter_(1, target_reshape, 1)
+        mask = torch.zeros(input.shape).to(device).scatter_(1, target_reshape, 1)
         loss = mask*loss
         # then we compute the right part of the formula (eq 4.)
-        zeros = torch.zeros(input.shape)
-        m_minus = torch.zeros(input.shape).fill_(self.m_minus)
+        zeros = torch.zeros(input.shape).to(device)
+        m_minus = torch.zeros(input.shape).to(device).fill_(self.m_minus)
         loss_2 = torch.max(zeros, input-m_minus)**2
-        mask = torch.ones(input.shape).scatter_(1, target_reshape, 0)
-        weight = torch.zeros(loss_2.shape).fill_(self.weight)
+        mask = torch.ones(input.shape).to(device).scatter_(1, target_reshape, 0)
+        weight = torch.zeros(loss_2.shape).to(device).fill_(self.weight)
         loss_2 = self.weight*mask*loss_2
         loss = loss + loss_2
         loss = loss.sum(dim=1)
