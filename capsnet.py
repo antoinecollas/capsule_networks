@@ -13,10 +13,9 @@ class MarginLoss(nn.Module):
             - target: [batch_size] each classe is an interger which belongs to [0, nb_classes[
             - output: scalar
         '''
-        L = 0
         # we begin by computing the left part of the formula (eq 4.)
         zeros = torch.zeros(input.shape).to(device)
-        m_plus = torch.zeros(input.shape).fill_(self.m_plus).to(device)
+        m_plus = torch.zeros(input.shape).to(device).fill_(self.m_plus)
         loss = torch.max(zeros, m_plus-input)**2
         target_reshape = target.reshape((target.shape[0],1))
         mask = torch.zeros(input.shape).to(device).scatter_(1, target_reshape, 1)
