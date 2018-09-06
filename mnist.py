@@ -4,11 +4,11 @@ from torch.utils.data import DataLoader, SubsetRandomSampler
 from tensorboardX import SummaryWriter
 
 DATA_FOLDER = 'data/'
-BATCH_SIZE = 500
+BATCH_SIZE = 100
 NB_EPOCHS = 1000
-SIZE_TRAIN_SET = 60000
+SIZE_TRAIN_SET = 600
 PROPORTION_TRAIN_SET = 0.8
-
+LIST_ACTIVATIONS_TENSORBOARD = ['conv1', 'primary_caps', 'digit_caps']
 writer = SummaryWriter()
 
 nb_cores = os.cpu_count()
@@ -30,11 +30,13 @@ val_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, 
 model = CapsNet().to(device)
 # criterion = torch.nn.NLLLoss()
 criterion = MarginLoss(0.9, 0.1, 0.5)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 print('Number of parameters:', model.count_parameters())
 for epoch in range(NB_EPOCHS):
     print('Epoch {}/{}'.format(epoch + 1, NB_EPOCHS))
+
+    for name, param in model.named_parameters():
+        writer.add_histogram('weights/'+name, param.clone().cpu().data.numpy(), epoch)
 
     running_loss = 0.0
     running_corrects = 0
@@ -57,6 +59,14 @@ for epoch in range(NB_EPOCHS):
         batch_acc = torch.sum(preds == labels.data).double()/inputs.shape[0]
         # print('Train set: batch n {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
 
+    # print(model._modules['conv1'](inputs))
+    for name in LIST_ACTIVATIONS_TENSORBOARD:
+        inputs = model._modules[name](inputs)
+        writer.add_histogram('activation/'+name, inputs.cpu().data.numpy(), epoch)
+
+    for name, param in model.named_parameters():
+        writer.add_histogram('grad/'+name, param.grad.clone().cpu().data.numpy(), epoch)
+    
     epoch_loss = running_loss / nb_images
     epoch_acc = running_corrects.double() / nb_images
 
