@@ -30,7 +30,7 @@ val_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, 
 model = CapsNet().to(device)
 # criterion = torch.nn.NLLLoss()
 criterion = MarginLoss(0.9, 0.1, 0.5)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 print('Number of parameters:', model.count_parameters())
 for epoch in range(NB_EPOCHS):
     print('Epoch {}/{}'.format(epoch + 1, NB_EPOCHS))
