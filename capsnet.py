@@ -9,25 +9,32 @@ class MarginLoss(nn.Module):
     
     def forward(self, input, target):
         '''
-            - Input: [batch_size, nb_classes] each number is a probability (0<=p<=1)
-            - Target: [batch_size] each classe is an interger which belongs to [0, nb_classes[
-            - Output: scalar
+            - input: [batch_size, nb_classes] each number is a probability (0<=p<=1)
+            - target: [batch_size] each classe is an interger which belongs to [0, nb_classes[
+            - output: scalar
         '''
         L = 0
         t0 = time.time()
-        batch_size, nb_digits = input.shape
-        for i in range(batch_size):
-            for k in range(nb_digits):
-                if k==target[i]:
-                    temp = torch.tensor(torch.tensor([0, self.m_plus-input[i,k]]).to(device), requires_grad=True)
-                    L_k = torch.max(temp)**2
-                else:
-                    temp = torch.tensor(torch.tensor([0, input[i,k]-self.m_minus]).to(device), requires_grad=True)
-                    L_k = self.weight*(torch.max(temp)**2)
-                L = L + L_k
+        # we begin by computing the left part of the formula (eq 4.)
+        zeros = torch.zeros(input.shape)
+        m_plus = torch.zeros(input.shape).fill_(self.m_plus)
+        loss = torch.max(zeros, m_plus-input)**2
+        target_reshape = target.reshape((target.shape[0],1))
+        mask = torch.zeros(input.shape).scatter_(1, target_reshape, 1)
+        loss = mask*loss
+        # then we compute the right part of the formula (eq 4.)
+        zeros = torch.zeros(input.shape)
+        m_minus = torch.zeros(input.shape).fill_(self.m_minus)
+        loss_2 = torch.max(zeros, input-m_minus)**2
+        mask = torch.ones(input.shape).scatter_(1, target_reshape, 0)
+        weight = torch.zeros(loss_2.shape).fill_(self.weight)
+        loss_2 = self.weight*mask*loss_2
+        loss = loss + loss_2
+        loss = loss.sum(dim=1)
+        loss = loss.mean()
         t1 = time.time()
-        # print("time=", t1-t0)
-        return L/batch_size
+        print("time=", t1-t0)
+        return loss
 
 def squash(s, dim=-1):
     squared_norm = (s ** 2).sum(dim=dim, keepdim=True)
