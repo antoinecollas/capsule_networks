@@ -67,7 +67,8 @@ def routing(u, nb_iterations=1):
         s = torch.sum(s, dim=-2)
         v = squash(s, dim=-1)
         temp_v = v.reshape((batch_size, out_height, 1, out_width)).repeat((1, 1, in_caps, 1))
-        agreement = torch.sum(u*temp_v, dim=-1)
+        agreement = u*temp_v
+        agreement = torch.sum(agreement, dim=-1)
         agreement = agreement.reshape((*agreement.shape, 1))
         b = b+agreement
     return v
@@ -86,7 +87,7 @@ class DigitCaps(nn.Module):
         batch_size, _, size_primary_caps, _, _ = x.shape
         output = x.reshape(batch_size, 1, -1, size_primary_caps, 1)
         output = self.W @ output
-        output = output.reshape(output.shape[:-1])
+        output = output.squeeze()
         output = routing(output, self.iter)
         return output
 
