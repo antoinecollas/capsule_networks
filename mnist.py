@@ -6,7 +6,7 @@ from tensorboardX import SummaryWriter
 DATA_FOLDER = 'data/'
 BATCH_SIZE = 500
 NB_EPOCHS = 1000
-SIZE_TRAIN_SET = 100
+SIZE_TRAIN_SET = 60000
 PROPORTION_TRAIN_SET = 0.8
 
 writer = SummaryWriter()
@@ -30,7 +30,7 @@ val_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, 
 model = CapsNet().to(device)
 # criterion = torch.nn.NLLLoss()
 criterion = MarginLoss(0.9, 0.1, 0.5)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
 print('Number of parameters:', model.count_parameters())
 for epoch in range(NB_EPOCHS):
