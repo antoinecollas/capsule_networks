@@ -1,6 +1,5 @@
 import torch, sys, time, math
 from torch import nn
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class MarginLoss(nn.Module):
     def __init__(self, m_plus=0.9, m_minus=0.1, weight=0.5):
@@ -14,18 +13,18 @@ class MarginLoss(nn.Module):
             - output: scalar
         '''
         # we begin by computing the left part of the formula (eq 4.)
-        zeros = torch.zeros(input.shape).to(device)
-        m_plus = torch.zeros(input.shape).to(device).fill_(self.m_plus)
+        zeros = input.new_zeros(input.shape)
+        m_plus = input.new_full(input.shape, self.m_plus)
         loss = torch.max(zeros, m_plus-input)**2
         target_reshape = target.reshape((target.shape[0],1))
-        mask = torch.zeros(input.shape).to(device).scatter_(1, target_reshape, 1)
+        mask = input.new_zeros(input.shape).scatter_(1, target_reshape, 1)
         loss = mask*loss
         # then we compute the right part of the formula (eq 4.)
-        zeros = torch.zeros(input.shape).to(device)
-        m_minus = torch.zeros(input.shape).to(device).fill_(self.m_minus)
+        zeros = input.new_zeros(input.shape)
+        m_minus = input.new_full(input.shape, self.m_minus)
         loss_2 = torch.max(zeros, input-m_minus)**2
-        mask = torch.ones(input.shape).to(device).scatter_(1, target_reshape, 0)
-        weight = torch.zeros(loss_2.shape).to(device).fill_(self.weight)
+        mask = input.new_ones(input.shape).scatter_(1, target_reshape, 0)
+        weight = input.new_full(loss_2.shape, self.weight)
         loss_2 = self.weight*mask*loss_2
         loss = loss + loss_2
         loss = loss.sum(dim=1)
@@ -60,7 +59,7 @@ def routing(u, nb_iterations=1):
         Returns: [batch_size, out_height, out_width]
     '''
     batch_size, out_height, in_caps, out_width = u.shape
-    b = torch.zeros((batch_size, out_height, in_caps, 1)).to(device)
+    b = u.new_zeros((batch_size, out_height, in_caps, 1))
     for i in range(nb_iterations):
         c = torch.nn.functional.softmax(b, dim=-3)
         s = u*c
