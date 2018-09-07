@@ -1,14 +1,15 @@
 import torch, torchvision, os, sys, random, math
-from capsnet import CapsNet, MarginLoss
+from torch.nn import MSELoss
 from torch.utils.data import DataLoader, SubsetRandomSampler
 from tensorboardX import SummaryWriter
+from capsnet import CapsNet, Decoder, TotalLoss
+from stats_tensorboard import compute_save_stats
 
 DATA_FOLDER = 'data/'
 BATCH_SIZE = 200
 NB_EPOCHS = 1000
 SIZE_TRAIN_SET = 60000
 PROPORTION_TRAIN_SET = 0.8
-LIST_ACTIVATIONS_TENSORBOARD = ['conv1', 'primary_caps', 'digit_caps']
 writer = SummaryWriter()
 
 nb_cores = os.cpu_count()
@@ -30,44 +31,30 @@ val_sampler = SubsetRandomSampler(val_indices)
 train_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=train_sampler, num_workers=nb_cores)
 val_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, num_workers=nb_cores)
 
-model = CapsNet().to(device)
-# criterion = torch.nn.NLLLoss()
-criterion = MarginLoss(0.9, 0.1, 0.5)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-print('Number of parameters:', model.count_parameters())
+capsnet = CapsNet().to(device)
+print('Number of parameters (CapsNet):', capsnet.count_parameters())
+decoder = Decoder().to(device)
+
+criterion = TotalLoss()
+optimizer = torch.optim.Adam(capsnet.parameters(), lr=0.0001)
+
 for epoch in range(NB_EPOCHS):
     print('Epoch {}/{}'.format(epoch + 1, NB_EPOCHS))
 
-    #tensorboard: compute stats on first batch (taken randomly among all training images)
-    inputs, labels = next(iter(train_loader))
-    inputs = inputs.to(device)
-    labels = labels.to(device)
-    for name, param in model.named_parameters():
-        writer.add_histogram('weights/'+name, param.clone().cpu().data.numpy(), epoch)
-    temp = inputs.clone()
-    for name in LIST_ACTIVATIONS_TENSORBOARD:
-        temp = model._modules[name](temp)
-        writer.add_histogram('activation/'+name, temp.cpu().data.numpy(), epoch)
-    del temp
-    torch.cuda.empty_cache()
-    outputs = model(inputs)
-    writer.add_histogram('activation/outputs', outputs.cpu().data.numpy(), epoch)
-    loss = criterion(outputs, labels)
-    optimizer.zero_grad()
-    loss.backward()
-    for name, param in model.named_parameters():
-        writer.add_histogram('grad/'+name, param.grad.clone().cpu().data.numpy(), epoch)
-
+    # compute_save_stats(writer, train_loader, capsnet, criterion_capsnet, optimizer)
+    
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
-    model.train()
+    capsnet.train()
+    decoder.train()
     for i, (inputs, labels) in enumerate(train_loader):
         inputs = inputs.to(device)
         labels = labels.to(device)
-        outputs = model(inputs)
-        _, preds = torch.max(outputs, 1)
-        loss = criterion(outputs, labels)
+        output_norm, output = capsnet(inputs)
+        _, preds = torch.max(output_norm, 1)
+        output = decoder(output, labels)
+        loss = criterion(inputs, output, labels, output_norm)
         
         #backprop
         optimizer.zero_grad()
@@ -87,13 +74,14 @@ for epoch in range(NB_EPOCHS):
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
-    model.eval()
+    capsnet.eval()
     for i, (inputs, labels) in enumerate(val_loader):
         inputs = inputs.to(device)
         labels = labels.to(device)
-        outputs = model(inputs)
-        _, preds = torch.max(outputs, 1)
-        loss = criterion(outputs, labels)
+        output_norm, output = capsnet(inputs)
+        _, preds = torch.max(output_norm, 1)
+        output = decoder(output, labels)
+        loss = criterion(inputs, output, labels, output_norm)
         running_loss += loss.item() * inputs.shape[0]
         running_corrects += torch.sum(preds == labels.data)
         nb_images += inputs.shape[0]

@@ -6,7 +6,7 @@ class MarginLoss(nn.Module):
         super(MarginLoss, self).__init__()
         self.m_plus, self.m_minus, self.weight = m_plus, m_minus, weight
     
-    def forward(self, input, target):
+    def forward(self, target, input):
         '''
             - input: [batch_size, nb_classes] each number is a probability (0<=p<=1)
             - target: [batch_size] each classe is an interger which belongs to [0, nb_classes[
@@ -29,6 +29,26 @@ class MarginLoss(nn.Module):
         loss = loss + loss_2
         loss = loss.sum(dim=1)
         loss = loss.mean()
+        return loss
+
+class TotalLoss(nn.Module):
+    def __init__(self, m_plus=0.9, m_minus=0.1, weight_margin=0.5, weight_mse=0.0005):
+        super(TotalLoss, self).__init__()
+        self.margin_loss = MarginLoss(m_plus, m_minus, weight_margin)
+        self.weight_mse = weight_mse
+        self.mse = nn.MSELoss()
+    
+    def forward(self, image, reconstructed_image, labels, prediction):
+        '''
+            - image
+            - reconstructed_image: [batch_size, size_image]
+            - labels: [batch_size] each classe is an interger which belongs to [0, nb_classes[
+            - prediction
+            - output: scalar
+        '''
+        batch_size = image.shape[0]
+        image = image.reshape(batch_size, -1)
+        loss = self.margin_loss(labels, prediction) + self.weight_mse*self.mse(image, reconstructed_image)
         return loss
 
 def squash(s, dim=-1):
@@ -113,8 +133,8 @@ class CapsNet(nn.Module):
         output = self.conv1(input)
         output = self.primary_caps(output)
         output = self.digit_caps(output)
-        output = torch.norm(output, p=2, dim=-1)
-        return output
+        output_norm = torch.norm(output, p=2, dim=-1)
+        return output_norm, output
 
     # def extra_repr(self):
     #     # (Optional)Set the extra information about this module. You can test
@@ -122,3 +142,30 @@ class CapsNet(nn.Module):
     #     return 'in_features={}, out_features={}, bias={}'.format(
     #         self.in_features, self.out_features, self.bias is not None
     #     )
+
+class Decoder(nn.Module):
+    def __init__(self, size_digit_caps=16, out_features=784):
+        super(Decoder, self).__init__()
+        self.decoder = nn.Sequential(
+            nn.Linear(in_features=size_digit_caps, out_features=512),
+            nn.ReLU(),
+            nn.Linear(in_features=512, out_features=1024),
+            nn.ReLU(),
+            nn.Linear(in_features=1024, out_features=out_features),
+            nn.Sigmoid()
+        )
+
+    def forward(self, input, digit):
+        '''
+            input: [batch_size, nb_digits, size_primary_caps]
+            digit: [batch_size]
+            returns: [batch_size, out_features]
+        '''
+        mask = input.new_zeros(input.shape[:-1])
+        digit = digit.reshape((digit.shape[0],1))
+        mask = mask.scatter_(1, digit, 1)
+        mask = mask.reshape((*mask.shape,1)).repeat((1,1,input.shape[-1]))
+        input = input*mask
+        input = input.sum(dim=-2)
+        output = self.decoder(input)
+        return output
