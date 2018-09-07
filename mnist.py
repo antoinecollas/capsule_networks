@@ -3,7 +3,7 @@ from torch.nn import MSELoss
 from torch.utils.data import DataLoader, SubsetRandomSampler
 from tensorboardX import SummaryWriter
 from capsnet import Model, TotalLoss
-from stats_tensorboard import compute_save_stats
+from stats_tensorboard import begin_epoch_stats
 
 DATA_FOLDER = 'data/'
 BATCH_SIZE = 200
@@ -40,8 +40,9 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 for epoch in range(NB_EPOCHS):
     print('Epoch {}/{}'.format(epoch + 1, NB_EPOCHS))
 
-    compute_save_stats(writer, train_loader, model, criterion, optimizer, device, epoch)
+    begin_epoch_stats(writer, train_loader, val_loader, model, criterion, optimizer, device, epoch)
     
+    #training
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
