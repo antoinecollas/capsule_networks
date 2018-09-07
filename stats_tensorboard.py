@@ -32,6 +32,7 @@ def begin_epoch_stats(writer, train_loader, val_loader, model, criterion, optimi
     inputs, _ = next(iter(val_loader))
     inputs = inputs.to(device)
     model.eval()
+    _, reconstructed_image = model(inputs)
     im_to_save = random.sample(range(inputs.shape[0]), NB_IM_TO_SAVE)
     inputs = inputs.reshape((inputs.shape[0], 1, inputs.shape[-2], inputs.shape[-1]))[im_to_save]
     im = make_grid(inputs, normalize=False, scale_each=False)
