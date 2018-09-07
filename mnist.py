@@ -40,18 +40,19 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 for epoch in range(NB_EPOCHS):
     print('Epoch {}/{}'.format(epoch + 1, NB_EPOCHS))
 
-    # compute_save_stats(writer, train_loader, model, criterion_capsnet, optimizer)
+    compute_save_stats(writer, train_loader, model, criterion, optimizer, device, epoch)
     
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
     model.train()
     for i, (inputs, labels) in enumerate(train_loader):
+        #forward
         inputs = inputs.to(device)
         labels = labels.to(device)
         output_norm, reconstructed_image = model(inputs, labels)
         _, preds = torch.max(output_norm, 1)
-        loss = criterion(inputs, reconstructed_image, labels, output_norm)
+        loss, margin_loss, mse = criterion(inputs, reconstructed_image, labels, output_norm)
         
         #backprop
         optimizer.zero_grad()
@@ -68,6 +69,7 @@ for epoch in range(NB_EPOCHS):
     epoch_loss = running_loss / nb_images
     epoch_acc = running_corrects.double() / nb_images
 
+    #validation
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
@@ -77,13 +79,14 @@ for epoch in range(NB_EPOCHS):
         labels = labels.to(device)
         output_norm, reconstructed_image = model(inputs)
         _, preds = torch.max(output_norm, 1)
-        loss = criterion(inputs, reconstructed_image, labels, output_norm)
+        loss, margin_loss, mse = criterion(inputs, reconstructed_image, labels, output_norm)
         running_loss += loss.item() * inputs.shape[0]
         running_corrects += torch.sum(preds == labels.data)
         nb_images += inputs.shape[0]
         batch_acc = torch.sum(preds == labels.data).double()/inputs.shape[0]
         # print('Val set: batch n {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
 
+    #tensorboard
     epoch_loss_val = running_loss / nb_images
     epoch_acc_val = running_corrects.double() / nb_images
     writer.add_scalar('train/Loss', epoch_loss, epoch)

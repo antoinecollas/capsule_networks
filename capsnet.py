@@ -48,8 +48,10 @@ class TotalLoss(nn.Module):
         '''
         batch_size = image.shape[0]
         image = image.reshape(batch_size, -1)
-        loss = self.margin_loss(labels, prediction) + self.weight_mse*self.mse(image, reconstructed_image)
-        return loss
+        margin_loss = self.margin_loss(labels, prediction)
+        mse = self.weight_mse*self.mse(image, reconstructed_image)
+        loss = margin_loss + mse
+        return loss, margin_loss, mse
 
 def squash(s, dim=-1):
     squared_norm = (s ** 2).sum(dim=dim, keepdim=True)
