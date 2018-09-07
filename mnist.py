@@ -2,7 +2,7 @@ import torch, torchvision, os, sys, random, math
 from torch.nn import MSELoss
 from torch.utils.data import DataLoader, SubsetRandomSampler
 from tensorboardX import SummaryWriter
-from capsnet import CapsNet, Decoder, TotalLoss
+from capsnet import Model, TotalLoss
 from stats_tensorboard import compute_save_stats
 
 DATA_FOLDER = 'data/'
@@ -31,30 +31,27 @@ val_sampler = SubsetRandomSampler(val_indices)
 train_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=train_sampler, num_workers=nb_cores)
 val_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, num_workers=nb_cores)
 
-capsnet = CapsNet().to(device)
-print('Number of parameters (CapsNet):', capsnet.count_parameters())
-decoder = Decoder().to(device)
+model = Model().to(device)
+print('Number of parameters:', model.count_parameters())
 
 criterion = TotalLoss()
-optimizer = torch.optim.Adam(capsnet.parameters(), lr=0.0001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 for epoch in range(NB_EPOCHS):
     print('Epoch {}/{}'.format(epoch + 1, NB_EPOCHS))
 
-    # compute_save_stats(writer, train_loader, capsnet, criterion_capsnet, optimizer)
+    # compute_save_stats(writer, train_loader, model, criterion_capsnet, optimizer)
     
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
-    capsnet.train()
-    decoder.train()
+    model.train()
     for i, (inputs, labels) in enumerate(train_loader):
         inputs = inputs.to(device)
         labels = labels.to(device)
-        output_norm, output = capsnet(inputs)
+        output_norm, reconstructed_image = model(inputs, labels)
         _, preds = torch.max(output_norm, 1)
-        output = decoder(output, labels)
-        loss = criterion(inputs, output, labels, output_norm)
+        loss = criterion(inputs, reconstructed_image, labels, output_norm)
         
         #backprop
         optimizer.zero_grad()
@@ -66,7 +63,7 @@ for epoch in range(NB_EPOCHS):
         running_corrects += torch.sum(preds == labels.data)
         nb_images += inputs.shape[0]
         batch_acc = torch.sum(preds == labels.data).double()/inputs.shape[0]
-        # print('Train set: batch n {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
+        print('Train set: batch n {}. Loss: {:.3f} Acc: {:.3f}'.format(i, loss.item(), batch_acc))
 
     epoch_loss = running_loss / nb_images
     epoch_acc = running_corrects.double() / nb_images
@@ -74,14 +71,13 @@ for epoch in range(NB_EPOCHS):
     running_loss = 0.0
     running_corrects = 0
     nb_images = 0
-    capsnet.eval()
+    model.eval()
     for i, (inputs, labels) in enumerate(val_loader):
         inputs = inputs.to(device)
         labels = labels.to(device)
-        output_norm, output = capsnet(inputs)
+        output_norm, reconstructed_image = model(inputs)
         _, preds = torch.max(output_norm, 1)
-        output = decoder(output, labels)
-        loss = criterion(inputs, output, labels, output_norm)
+        loss = criterion(inputs, reconstructed_image, labels, output_norm)
         running_loss += loss.item() * inputs.shape[0]
         running_corrects += torch.sum(preds == labels.data)
         nb_images += inputs.shape[0]

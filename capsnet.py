@@ -125,9 +125,6 @@ class CapsNet(nn.Module):
         self.primary_caps = PrimaryCaps(kernel_size=kernel_size, in_channels=channels_conv1, size_primary_caps=size_primary_caps, out_channels=channels_conv2)
         in_caps = 32*6*6 #1152 TODO: remove hard code
         self.digit_caps = DigitCaps(in_caps=in_caps, size_in_caps=size_primary_caps, in_channels=channels_conv2, out_height=nb_digits, out_width=size_digit_caps, iter_routing=iter_routing)
-
-    def count_parameters(self):
-            return sum(p.numel() for p in self.parameters() if p.requires_grad)
             
     def forward(self, input):
         output = self.conv1(input)
@@ -135,13 +132,6 @@ class CapsNet(nn.Module):
         output = self.digit_caps(output)
         output_norm = torch.norm(output, p=2, dim=-1)
         return output_norm, output
-
-    # def extra_repr(self):
-    #     # (Optional)Set the extra information about this module. You can test
-    #     # it by printing an object of this class.
-    #     return 'in_features={}, out_features={}, bias={}'.format(
-    #         self.in_features, self.out_features, self.bias is not None
-    #     )
 
 class Decoder(nn.Module):
     def __init__(self, size_digit_caps=16, out_features=784):
@@ -155,17 +145,36 @@ class Decoder(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, input, digit):
+    def forward(self, input, digit=None):
         '''
             input: [batch_size, nb_digits, size_primary_caps]
             digit: [batch_size]
             returns: [batch_size, out_features]
         '''
-        mask = input.new_zeros(input.shape[:-1])
+        if not self.training:
+            input_norm = torch.norm(input, p=2, dim=-1)
+            _, digit = torch.max(input_norm, 1)
+        if self.training and digit is None:
+            raise "Error, there are no digits whereas Decoder is in training mode."
         digit = digit.reshape((digit.shape[0],1))
+        mask = input.new_zeros(input.shape[:-1])
         mask = mask.scatter_(1, digit, 1)
         mask = mask.reshape((*mask.shape,1)).repeat((1,1,input.shape[-1]))
         input = input*mask
         input = input.sum(dim=-2)
         output = self.decoder(input)
         return output
+
+class Model(nn.Module):
+    def __init__(self, kernel_size=9, channels_conv1=256, size_primary_caps=8, channels_conv2=32, size_digit_caps=16, nb_digits=10, iter_routing=3, out_features=784):
+        super(Model, self).__init__()
+        self.capsnet = CapsNet(kernel_size, channels_conv1, size_primary_caps, channels_conv2, size_digit_caps, nb_digits, iter_routing)
+        self.decoder = Decoder(size_digit_caps, out_features)
+
+    def count_parameters(self):
+            return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+    def forward(self, input, labels=None):
+        output_norm, output = self.capsnet(input)
+        reconstructed_image = self.decoder(output, labels)
+        return output_norm, reconstructed_image
