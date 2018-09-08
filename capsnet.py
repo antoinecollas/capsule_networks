@@ -36,7 +36,7 @@ class TotalLoss(nn.Module):
         super(TotalLoss, self).__init__()
         self.margin_loss = MarginLoss(m_plus, m_minus, weight_margin)
         self.weight_mse = weight_mse
-        self.mse = nn.MSELoss()
+        self.mse = nn.MSELoss(reduction='sum')
     
     def forward(self, image, reconstructed_image, labels, prediction):
         '''
@@ -49,7 +49,8 @@ class TotalLoss(nn.Module):
         batch_size = image.shape[0]
         image = image.reshape(batch_size, -1)
         margin_loss = self.margin_loss(labels, prediction)
-        mse = self.weight_mse*self.mse(image, reconstructed_image)
+        # change next line when the bug of MSELoos is resolved (https://github.com/pytorch/pytorch/issues/10148)
+        mse = self.weight_mse*self.mse(image, reconstructed_image) / batch_size 
         loss = margin_loss + mse
         return loss, margin_loss, mse
 
@@ -102,8 +103,8 @@ class DigitCaps(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.W.size(-1))
-        self.W.data.uniform_(-stdv, stdv)
+        std = 0.1
+        self.W.data.normal_(mean=0, std=std)
 
     def forward(self, x):
         '''
