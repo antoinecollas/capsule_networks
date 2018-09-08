@@ -1,6 +1,7 @@
 import torch, torchvision, os, sys, random, math
 from torch.nn import MSELoss
 from torch.utils.data import DataLoader, SubsetRandomSampler
+from torchvision import transforms
 from tensorboardX import SummaryWriter
 from capsnet import Model, TotalLoss
 from stats_tensorboard import begin_epoch_stats
@@ -15,10 +16,17 @@ writer = SummaryWriter()
 nb_cores = os.cpu_count()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-transform = torchvision.transforms.Compose([
-    torchvision.transforms.ToTensor()
+training_transform = transforms.Compose([
+    transforms.RandomAffine(degrees=0, translate=(0.1,0.1), scale=None, shear=None, resample=False, fillcolor=0),
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
 ])
-MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=transform, target_transform=None, download=True)
+validation_transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+training_MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=training_transform, target_transform=None, download=True)
+validation_MNIST_data = torchvision.datasets.MNIST(root=DATA_FOLDER, train=True, transform=validation_transform, target_transform=None, download=True)
 size_train_set = math.floor((SIZE_TRAIN_SET+1)*PROPORTION_TRAIN_SET)
 train_indices = set(random.sample(range(SIZE_TRAIN_SET), size_train_set))
 val_indices = set(range(SIZE_TRAIN_SET)) - train_indices
@@ -28,8 +36,8 @@ val_indices = list(val_indices)
 print('len(val_indices)=', len(val_indices))
 train_sampler = SubsetRandomSampler(train_indices)
 val_sampler = SubsetRandomSampler(val_indices)
-train_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=train_sampler, num_workers=nb_cores)
-val_loader = DataLoader(MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, num_workers=nb_cores)
+train_loader = DataLoader(training_MNIST_data, batch_size=BATCH_SIZE, sampler=train_sampler, num_workers=nb_cores)
+val_loader = DataLoader(validation_MNIST_data, batch_size=BATCH_SIZE, sampler=val_sampler, num_workers=nb_cores)
 
 model = Model().to(device)
 print('Number of parameters:', model.count_parameters())
